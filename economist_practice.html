@@ -307,6 +307,25 @@
             box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
         }
 
+        .btn-show-answer {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: all 0.2s ease;
+        }
+
+        .btn-show-answer:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+        }
+
         .chinese-hint.hidden {
             visibility: hidden;
             opacity: 0;
@@ -1109,6 +1128,9 @@
                     <button class="btn-copy-sentence" onclick="copySentenceWithPrompt()">
                         📄 一键复制提问AI
                     </button>
+                    <button class="btn-show-answer" id="btnShowAnswer" onclick="toggleAutoShowAnswer()">
+                        💡 连播阅读模式
+                    </button>
                 </div>
                 <div class="speaker-badge" id="speakerBadge">SAM</div>
                 <div class="chinese-hint" id="chineseHint">中文提示</div>
@@ -1226,6 +1248,7 @@
         let currentWords = [];
         let favoritesMode = false;
         let favoriteSentences = []; // 收藏夹模式下的句子列表
+        let autoShowAnswer = false; // 连播阅读模式
 
         // 初始化课程选择器
         function initLessonSelector() {
@@ -1311,6 +1334,11 @@
 
             // 更新收藏按钮状态
             updateFavoriteButton();
+
+            // 如果处于连播阅读模式，直接显示答案
+            if (autoShowAnswer) {
+                setTimeout(() => showCorrectAnswer(), 50);
+            }
         }
 
         // 分词函数
@@ -1573,6 +1601,48 @@
                     }
                 }
             });
+        }
+
+        // 一键显示答案
+        function showCorrectAnswer() {
+            const dropZone = document.getElementById('dropZone');
+            const wordPool = document.getElementById('wordPool');
+            const correctTokens = tokenizeSentence(sentences[currentIndex].english);
+
+            // 清理 dropZone
+            dropZone.innerHTML = '';
+            
+            // 清理并重新渲染单词池里的内容为空
+            wordPool.innerHTML = '';
+
+            // 按正确顺序重新创建单词块并放入 dropZone
+            correctTokens.forEach((token, idx) => {
+                const wordEl = createWordElement(token, idx);
+                wordEl.classList.add('in-zone');
+                dropZone.appendChild(wordEl);
+            });
+
+            // 触发检查逻辑，显示成功状态和解析
+            checkAnswer();
+        }
+
+        // 连播阅读模式切换
+        function toggleAutoShowAnswer() {
+            autoShowAnswer = !autoShowAnswer;
+            const btn = document.getElementById('btnShowAnswer');
+            if (autoShowAnswer) {
+                btn.innerHTML = '🚫 关闭阅读模式';
+                btn.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)'; // 红色
+                
+                // 立即显示当前这句的答案（如果还没做正确的话）
+                const dropZone = document.getElementById('dropZone');
+                if (!dropZone.classList.contains('correct')) {
+                    showCorrectAnswer();
+                }
+            } else {
+                btn.innerHTML = '💡 连播阅读模式';
+                btn.style.background = ''; // 恢复绿色
+            }
         }
 
         // 检查答案
