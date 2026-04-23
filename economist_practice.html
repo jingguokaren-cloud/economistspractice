@@ -1314,8 +1314,14 @@
             const progress = ((index) / sentences.length) * 100;
             document.getElementById('progressFill').style.width = progress + '%';
 
-            // 打乱单词顺序
-            currentWords = shuffleArray(tokenizeSentence(sentence.english));
+            // 按字母顺序排列单词（标点符号排在最后）
+            currentWords = tokenizeSentence(sentence.english).sort((a, b) => {
+                const aIsPunct = /^[!?,.'"\-;:]+$/.test(a);
+                const bIsPunct = /^[!?,.'"\-;:]+$/.test(b);
+                if (aIsPunct && !bIsPunct) return 1;
+                if (!aIsPunct && bIsPunct) return -1;
+                return a.toLowerCase().localeCompare(b.toLowerCase());
+            });
 
             // 渲染单词池
             renderWordPool();
