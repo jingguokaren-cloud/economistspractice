@@ -3,13 +3,28 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>经济学人 - 精读练习</title>
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+        }
+
+        /* 消除手机端 300ms 点击延迟 */
+        button,
+        .btn,
+        .word,
+        .btn-favorites-mode,
+        .btn-speak-sentence,
+        .toggle-chinese,
+        .btn-copy-sentence,
+        .btn-show-answer,
+        .speak-icon,
+        select,
+        a {
+            touch-action: manipulation;
         }
 
         body {
@@ -106,6 +121,35 @@
             color: white;
             font-size: 1.2em;
             margin-top: 10px;
+        }
+
+        .jump-input {
+            width: 42px;
+            text-align: center;
+            background: rgba(255, 255, 255, 0.25);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            border-radius: 6px;
+            color: white;
+            font-size: 0.8em;
+            font-weight: bold;
+            padding: 2px 4px;
+            outline: none;
+            touch-action: manipulation;
+        }
+
+        .jump-input:focus {
+            background: rgba(255, 255, 255, 0.45);
+            border-color: white;
+        }
+
+        .jump-input::-webkit-outer-spin-button,
+        .jump-input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        .jump-input[type=number] {
+            -moz-appearance: textfield;
         }
 
         .exercise-card {
@@ -1057,7 +1101,7 @@
             }
 
             .exercise-card {
-                padding: 20px;
+                padding: 15px;
             }
 
             .word {
@@ -1065,12 +1109,26 @@
                 font-size: 0.9em;
             }
 
+            .sentence-controls {
+                flex-direction: column;
+                gap: 8px;
+            }
+
+            .sentence-controls button {
+                width: 100%;
+                min-height: 44px;
+                justify-content: center;
+            }
+
             .buttons {
                 flex-direction: column;
+                gap: 10px;
             }
 
             .btn {
                 width: 100%;
+                min-height: 48px;
+                font-size: 1em;
             }
 
             .lesson-selector {
@@ -1079,11 +1137,23 @@
 
             .lesson-select {
                 min-width: 100%;
+                min-height: 44px;
             }
 
             .btn-favorites-mode {
                 width: 100%;
+                min-height: 44px;
                 justify-content: center;
+            }
+
+            .nav-buttons {
+                flex-direction: column;
+                gap: 8px;
+            }
+
+            .nav-buttons .btn {
+                width: 100%;
+                min-height: 44px;
             }
         }
     </style>
@@ -1107,7 +1177,8 @@
                     onclick="showFavoritesShelf()">
                     📚 好句收藏夹
                 </button>
-                <button class="btn-favorites-mode" style="margin-left:8px; background: #ec4899;" onclick="showVocabShelf()">
+                <button class="btn-favorites-mode" style="margin-left:8px; background: #ec4899;"
+                    onclick="showVocabShelf()">
                     📔 生词本
                 </button>
             </div>
@@ -1116,7 +1187,9 @@
                 <div class="progress-fill" id="progressFill"></div>
             </div>
             <div class="score-display">
-                进度: <span id="currentIndex">1</span> / <span id="totalCount">9</span> |
+                进度: <input type="number" class="jump-input" id="jumpInput" value="1" min="1" onchange="jumpToSentence()"
+                    onkeydown="if(event.key==='Enter'){jumpToSentence();this.blur();}" /> / <span
+                    id="totalCount">9</span> |
                 得分: <span id="score">0</span>
             </div>
         </div>
@@ -1136,7 +1209,8 @@
                     <button class="btn-copy-sentence" onclick="copySentenceWithPrompt()">
                         📄 一键复制提问AI
                     </button>
-                    <button class="btn-copy-sentence" style="background: linear-gradient(135deg, #ec4899, #be185d);" onclick="favoriteSelectedWord()">
+                    <button class="btn-copy-sentence" style="background: linear-gradient(135deg, #ec4899, #be185d);"
+                        onclick="favoriteSelectedWord()">
                         📌 收藏选中词
                     </button>
                     <button class="btn-show-answer" id="btnShowAnswer" onclick="toggleAutoShowAnswer()">
@@ -1332,7 +1406,7 @@
             badge.className = 'speaker-badge ' + sentence.speakerClass;
 
             document.getElementById('chineseHint').textContent = sentence.chinese;
-            document.getElementById('currentIndex').textContent = index + 1;
+            document.getElementById('jumpInput').value = index + 1;
 
             // 更新进度条
             const progress = ((index) / sentences.length) * 100;
@@ -1549,6 +1623,22 @@
             window.speechSynthesis.speak(utterance);
         }
 
+        // 获取拖拽时应插入的目标元素
+        function getDragAfterElement(container, x, y) {
+            const draggableElements = [...container.querySelectorAll('.word:not(.dragging)')];
+            for (const child of draggableElements) {
+                const box = child.getBoundingClientRect();
+                if (y < box.bottom) {
+                    if (y > box.top) {
+                        if (x < box.left + box.width / 2) return child;
+                    } else {
+                        return child;
+                    }
+                }
+            }
+            return null;
+        }
+
         // 设置拖拽事件
         function setupDragAndDrop() {
             const dropZone = document.getElementById('dropZone');
@@ -1572,6 +1662,20 @@
             dropZone.addEventListener('dragover', (e) => {
                 e.preventDefault();
                 dropZone.classList.add('drag-over');
+
+                if (draggedWord) {
+                    const placeholder = dropZone.querySelector('span[style*="italic"]');
+                    if (placeholder) placeholder.remove();
+
+                    draggedWord.classList.add('in-zone');
+
+                    const afterElement = getDragAfterElement(dropZone, e.clientX, e.clientY);
+                    if (afterElement) {
+                        dropZone.insertBefore(draggedWord, afterElement);
+                    } else {
+                        dropZone.appendChild(draggedWord);
+                    }
+                }
             });
 
             dropZone.addEventListener('dragleave', () => {
@@ -1583,11 +1687,8 @@
                 dropZone.classList.remove('drag-over');
 
                 if (draggedWord) {
-                    const placeholder = dropZone.querySelector('span[style*="italic"]');
-                    if (placeholder) placeholder.remove();
-
                     draggedWord.classList.add('in-zone');
-                    dropZone.appendChild(draggedWord);
+                    // 单词位置已经在 dragover 中实时调整好了
                 }
             });
 
@@ -1641,7 +1742,7 @@
 
             // 清理 dropZone
             dropZone.innerHTML = '';
-            
+
             // 清理并重新渲染单词池里的内容为空
             wordPool.innerHTML = '';
 
@@ -1663,7 +1764,7 @@
             if (autoShowAnswer) {
                 btn.innerHTML = '🚫 关闭阅读模式';
                 btn.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)'; // 红色
-                
+
                 // 立即显示当前这句的答案（如果还没做正确的话）
                 const dropZone = document.getElementById('dropZone');
                 if (!dropZone.classList.contains('correct')) {
@@ -1889,6 +1990,18 @@
         function updateNavButtons() {
             document.getElementById('btnPrev').disabled = currentIndex === 0;
             document.getElementById('btnNavNext').disabled = currentIndex === sentences.length - 1;
+        }
+
+        // 跳转到指定句子
+        function jumpToSentence() {
+            const input = document.getElementById('jumpInput');
+            let num = parseInt(input.value);
+            if (isNaN(num) || num < 1) num = 1;
+            if (num > sentences.length) num = sentences.length;
+            input.value = num;
+            currentIndex = num - 1;
+            loadExercise(currentIndex);
+            updateNavButtons();
         }
 
         // 显示完成界面
